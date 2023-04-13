@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file alias="login">icons/snake.gif</file>
+    </qresource>
+</RCC>
