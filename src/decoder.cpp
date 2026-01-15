@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QFile>
 #include <QDir>
+#include <QRegularExpression>
 
 int Decoder::m_arr[128] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, -1, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, 63, -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1, -1, -1, -1};
 
@@ -68,11 +69,13 @@ bool Decoder::DecodeImage(QString inName, QByteArray imgData, QString outName)
 	// --------------- Descramble keys ---------------
 
 	// --------------- Get decode data ---------------
-	QRegExp rx("^=([0-9]+)-([0-9]+)([-+])([0-9]+)-([-_0-9A-Za-z]+)$");
-	rx.indexIn(m_ctbl.at(c).toString());
-	QStringList a = rx.capturedTexts();
-	rx.indexIn(m_ptbl.at(p).toString());
-	QStringList b = rx.capturedTexts();
+    QRegularExpression rx("^=([0-9]+)-([0-9]+)([-+])([0-9]+)-([-_0-9A-Za-z]+)$");
+
+    QRegularExpressionMatch match1 = rx.match(m_ctbl.at(c).toString());
+    QStringList a = match1.capturedTexts();
+
+    QRegularExpressionMatch match2 = rx.match(m_ptbl.at(p).toString());
+    QStringList b = match2.capturedTexts();
 
 	if (a.at(1) != b.at(1) || a.at(2) != b.at(2) || a.at(4) != b.at(4) || a.at(3) != "+" || b.at(3) != "-")
 	{

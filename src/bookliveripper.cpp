@@ -16,7 +16,7 @@ BookLiveRipper::BookLiveRipper(QWidget *parent) :
 	m_pBDAE(new BookDownloadAndExport)
 {
 	m_pUi->setupUi(this);
-	qsrand(time(nullptr));
+    srand(time(nullptr));
 	Login l;
 	l.show();
 	if(!l.CheckSavedLogin())

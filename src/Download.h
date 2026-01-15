@@ -24,13 +24,14 @@
 #include <QProgressBar>
 #endif
 
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QHash>
 #include <QDebug>
 #include <QTimer>
 #include <QEventLoop>
 #include <QTimerEvent>
 #include <QByteArray>
+#include <QMap>
 
 #define USER_AGENT "User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
 
@@ -93,8 +94,8 @@ int StaticMemberContainer<QByteArray>::m_staticTimeout = 10000;
 template<class QByteArray>
 QString StaticMemberContainer<QByteArray>::m_lastError = "";
 
-template<class QByteArray>
-QMap<QByteArray, QByteArray> StaticMemberContainer<QByteArray>::m_staticRawHeader = QMap<QByteArray, QByteArray>();
+template<class T>
+QMap<QByteArray, QByteArray> StaticMemberContainer<T>::m_staticRawHeader = QMap<QByteArray, QByteArray>();
 
 class TimeoutDebugNotifier : public QObject
 {
@@ -272,7 +273,7 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
 				if(dataList.size() > i)
 				{
 					QByteArray dat;
-					dat.append(dataList.at(i));
+                    dat.append(dataList.at(i).toUtf8());
 					m_postQueue.enqueue(dat);
 				}
 				else
@@ -302,7 +303,7 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
 			m_downloadQueue.enqueue(QUrl(url));
 
 			QByteArray dat;
-			dat.append(data);
+            dat.append(data.toUtf8());
 
 			m_postQueue.enqueue(dat);
 
@@ -407,9 +408,9 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
 			if(m_proxies.isEmpty())
 				return false;
 
-			QRegExp rx("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\:[0-9]{1,4}");
+            QRegularExpression rx(R"(^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{1,4}$)");
 
-			while(m_proxies.at(m_curProxy) == "" || !rx.exactMatch(m_proxies.at(m_curProxy)))
+            while (m_proxies.at(m_curProxy).isEmpty() || !rx.match(m_proxies.at(m_curProxy)).hasMatch())
 			{
 				m_curProxy++;
 
@@ -713,7 +714,7 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
 
 			QUrl u(url);
 			QByteArray dat;
-			dat.append(data);
+			dat.append(data.toUtf8());
 
 			QNetworkRequest request(u);
 			QNetworkReply *pReply;
@@ -769,9 +770,11 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
                     QString redirect = possibleRedirectUrl.toString();
 					if(!redirect.contains("https://") && !redirect.contains("http://"))
 					{
-						QRegExp rx("https?://[^/]*");
-						rx.indexIn(url);
-						redirect.prepend(rx.cap());
+                        QRegularExpression rx(R"(https?://[^/]+)");
+                        QRegularExpressionMatch match = rx.match(url);
+
+                        if (match.hasMatch())
+                            redirect.prepend(match.captured(0));
 					}
 
 					result = syncDownload(redirect, mode, data, proxy, contentType, pCookies, cookieMode);

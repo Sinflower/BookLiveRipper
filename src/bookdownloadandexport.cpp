@@ -117,7 +117,7 @@ void BookDownloadAndExport::Load(QString bookID)
 	{
 		resetAll();
 
-		m_pWatcher->setFuture(QtConcurrent::run(this, &BookDownloadAndExport::load, bookID));
+        m_pWatcher->setFuture(QtConcurrent::run([this, bookID]() { this->load(bookID); }));
 	}
 }
 
@@ -190,9 +190,11 @@ void BookDownloadAndExport::exportBook()
 			QString htmlBook = m_decodedBookHtml;
 
 			// Replace image tags with the image name
-			QRegExp rx(EXPORT_IMG_TAG_CLEAN_REGEX);
-			while(rx.indexIn(htmlBook) != -1)
-				htmlBook.replace(rx.cap(1), QString("[%1]").arg(rx.cap(2)));
+            QRegularExpression rx(EXPORT_IMG_TAG_CLEAN_REGEX);
+
+            QRegularExpressionMatch match;
+            while ((match = rx.match(htmlBook)).hasMatch())
+                htmlBook.replace(match.captured(1), QString("[%1]").arg(match.captured(2)));
 
 			QString plainText = "";
 			QString subStr;
@@ -227,14 +229,13 @@ void BookDownloadAndExport::exportBook()
 					QFile f(QString("%1 - %2.txt").arg(chapCnt).arg(chapName));
 					if(f.open(QIODevice::WriteOnly | QIODevice::Text))
 					{
-						QTextStream out(&f);
-						out.setCodec("UTF-8");
+                        QTextStream out(&f);
 						out << plainText;
 						f.close();
 						chapCnt++;
 					}
 					else
-						qDebug("[%s]: Unable to open output file: ", __func__, qPrintable(f.fileName()));
+                        qDebug("[%s]: Unable to open output file: %s", __func__, qPrintable(f.fileName()));
 				}
 
 				startPrevChap = posStart;
@@ -257,10 +258,9 @@ void BookDownloadAndExport::exportBook()
 
 				QFile f(QString("%1 - %2.txt").arg(chapCnt).arg(chapName));
 				if(!f.open(QIODevice::WriteOnly | QIODevice::Text))
-					qDebug("[%s]: Unable to open output file: ", __func__, qPrintable(f.fileName()));
+                    qDebug("[%s]: Unable to open output file: %s", __func__, qPrintable(f.fileName()));
 
-				QTextStream out(&f);
-				out.setCodec("UTF-8");
+                QTextStream out(&f);
 				out << plainText;
 				f.close();
 			}
@@ -276,9 +276,11 @@ void BookDownloadAndExport::exportBook()
 			QString htmlBook = m_decodedBookHtml;
 
 			// Replace image tags with the image name
-			QRegExp rx(EXPORT_IMG_TAG_CLEAN_REGEX);
-			while(rx.indexIn(htmlBook) != -1)
-				htmlBook.replace(rx.cap(1), rx.cap(2));
+            QRegularExpression rx(EXPORT_IMG_TAG_CLEAN_REGEX);
+
+            QRegularExpressionMatch match;
+            while ((match = rx.match(htmlBook)).hasMatch())
+                htmlBook.replace(match.captured(1), match.captured(2));
 
 			te.setHtml(htmlBook);
 
@@ -292,13 +294,12 @@ void BookDownloadAndExport::exportBook()
 			QFile f("book.txt");
 			if(!f.open(QIODevice::WriteOnly | QIODevice::Text))
 			{
-				qDebug("[%s]: Unable to open output file: ", __func__, qPrintable(f.fileName()));
+                qDebug("[%s]: Unable to open output file: %s", __func__, qPrintable(f.fileName()));
 				STATUS_MESSAGE("Exporting book as txt ... failed");
 				break;
 			}
 
-			QTextStream out(&f);
-			out.setCodec("UTF-8");
+            QTextStream out(&f);
 			out << plainText;
 			f.close();
 
@@ -314,13 +315,12 @@ void BookDownloadAndExport::exportBook()
 			f.setFileName("book.html");
 			if(!f.open(QIODevice::WriteOnly | QIODevice::Text))
 			{
-				qDebug("[%s]: Unable to open output file: ", __func__, qPrintable(f.fileName()));
+                qDebug("[%s]: Unable to open output file: %s", __func__, qPrintable(f.fileName()));
 				STATUS_MESSAGE("Exporting book as html ... failed");
 				break;
 			}
 
 			QTextStream out(&f);
-			out.setCodec("UTF-8");
 			out << m_decodedBookHtml;
 			f.close();
 
@@ -363,85 +363,100 @@ void BookDownloadAndExport::load(QString bookID)
 	// --------------- Fixing broken characters --------
 	STATUS_MESSAGE("Fixing broken unicode characters...");
 
-	QRegExp rx(BROKEN_UNICODE_CHARACTER_REGEX);
-	updateProgress(0, content.count(rx), 0);
+    QRegularExpression rx(BROKEN_UNICODE_CHARACTER_REGEX);
 
-	int pos = 0;
-	while((pos = rx.indexIn(content, pos)) != -1)
-	{
-		QString fixed = rx.cap(1) + ";";
+    // Update progress initially
+    updateProgress(0, content.count(rx), 0);
 
-		ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(rx.cap(1)));
-		content.replace(rx.cap(1), fixed);
+    int pos = 0;
+    QRegularExpressionMatch match;
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        QString fixed = match.captured(1) + ";";
 
-		pos += rx.matchedLength();
-	}
+        ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(match.captured(1)));
+
+        content.replace(match.captured(1), fixed);
+
+        pos += match.capturedLength(0);  // matchedLength equivalent
+    }
+
+
 	// --------------- Fixing broken characters --------
 
 	// --------------- Decode encoded characters -------
 	STATUS_MESSAGE("Decoding encoded characters...");
 
-	rx = QRegExp(ENCODED_CHARACTER_REGEX);
-	updateProgress(0, content.count(rx), 0);
-	pos = 0;
+    rx = QRegularExpression(ENCODED_CHARACTER_REGEX);
+    updateProgress(0, content.count(rx), 0);
 
-	while(rx.indexIn(content) != -1)
-	{
-		QString decStr = m_pDecoder->DecodeCharacter(rx.cap(1));
+    pos = 0;
 
-		if(!decStr.isEmpty())
-		{
-			ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(rx.cap(0)));
-			content.replace(rx.cap(0), decStr);
-		}
-	}
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        QString decStr = m_pDecoder->DecodeCharacter(match.captured(1));
+
+        if (!decStr.isEmpty())
+        {
+            ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(match.captured(0)));
+            content.replace(match.captured(0), decStr);
+        }
+
+        // Move past this match to avoid infinite loop
+        pos += match.capturedLength(0);
+    }
 	// --------------- Decode encoded characters -------
 
 	// --------------- Cleanup code --------------------
 	STATUS_MESSAGE("Cleaning up code...");
 
-	rx = QRegExp(T_PARAM_START_REGEX);
-	updateProgress(0, content.count(rx) + content.count(QRegExp(T_PARAM_END_REGEX)) + content.count(QRegExp(DIV_REGEX)), 0);
+    rx = QRegularExpression(T_PARAM_START_REGEX);
+    updateProgress(0, content.count(rx) + content.count(QRegularExpression(T_PARAM_END_REGEX)) + content.count(QRegularExpression(DIV_REGEX)), 0);
 
-	while(rx.indexIn(content) != -1)
-	{
-		ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(rx.cap(1)));
-		content.replace(rx.cap(1), "");
-	}
+    pos = 0;
 
-	rx = QRegExp(T_PARAM_END_REGEX);
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(match.captured(1)));
+        content.replace(match.captured(1), "");
+        pos += match.capturedLength(0);
+    }
 
-	while(rx.indexIn(content) != -1)
-	{
-		ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(rx.cap(1)));
-		content.replace(rx.cap(1), "");
-	}
+    rx.setPattern(T_PARAM_END_REGEX);
+    pos = 0;
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(match.captured(1)));
+        content.replace(match.captured(1), "");
+        pos += match.capturedLength(0);
+    }
 
-	rx = QRegExp(DIV_REGEX);
-
-	while(rx.indexIn(content) != -1)
-	{
-		ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(rx.cap(1)));
-		content.replace(rx.cap(1), "<div>");
-	}
+    rx.setPattern(DIV_REGEX);
+    pos = 0;
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        ADD_2_PROGRESS(m_pUi->progressBar_download, content.count(match.captured(1)));
+        content.replace(match.captured(1), "<div>");
+        pos += match.capturedLength(0);
+    }
 	// --------------- Cleanup code --------------------
 
-	// --------------- Descramble normal images --------
-	STATUS_MESSAGE("Downloading and descrambling normal images...");
-	SET_INFINIT_PROGRESS;
+    // --------------- Descramble normal images ---------------
+    STATUS_MESSAGE("Downloading and descrambling normal images...");
+    SET_INFINIT_PROGRESS;
 
-	rx = QRegExp(T_IMG_REGEX);
+    rx.setPattern(T_IMG_REGEX);
+    pos = 0;
+    QSet<QString> images;
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        pos += match.capturedLength(0);
 
-	pos = 0;
-	QSet<QString> images;
-	while((pos = rx.indexIn(content, pos)) != -1)
-	{
-		pos += rx.matchedLength();
-
-		QRegExp srcRx(T_IMG_SRC_REGEX);
-		if(srcRx.indexIn(rx.cap(1)) != -1)
-			images.insert(srcRx.cap(1));
-	}
+        QRegularExpression srcRx(T_IMG_SRC_REGEX);
+        QRegularExpressionMatch srcMatch = srcRx.match(match.captured(1));
+        if (srcMatch.hasMatch())
+            images.insert(srcMatch.captured(1));
+    }
 
 	updateProgress(0, images.count(), 0);
 
@@ -459,19 +474,19 @@ void BookDownloadAndExport::load(QString bookID)
 	STATUS_MESSAGE("Downloading and descrambling base64 images...");
 	SET_INFINIT_PROGRESS;
 
-	rx = QRegExp(T_CODE_IMG_REGEX);
+    rx = QRegularExpression(T_CODE_IMG_REGEX);
+    pos = 0;
+    images.clear();
 
-	pos = 0;
-	images.clear();
-	while((pos = rx.indexIn(content, pos)) != -1)
-	{
-		pos += rx.matchedLength();
+    while ((match = rx.match(content, pos)).hasMatch())
+    {
+        pos += match.capturedLength(0);
 
-		QRegExp srcRx(T_IMG_SRC_REGEX);
-		if(srcRx.indexIn(rx.cap(1)) != -1)
-			images.insert(srcRx.cap(1));
-	}
-
+        QRegularExpression srcRx(T_IMG_SRC_REGEX);
+        QRegularExpressionMatch srcMatch = srcRx.match(match.captured(1));
+        if (srcMatch.hasMatch())
+            images.insert(srcMatch.captured(1));
+    }
 	updateProgress(0, images.count(), 0);
 
 	foreach(QString i, images)
@@ -493,8 +508,8 @@ void BookDownloadAndExport::load(QString bookID)
 
 	// --------------- Convert font tags ---------------
 	STATUS_MESSAGE("Converting font tags...");
-	content.remove(QRegExp(T_FONT_REMOVE_REGEX));
-	content.remove(QRegExp(T_FONT_REGEX));
+    content.remove(QRegularExpression(T_FONT_REMOVE_REGEX));
+    content.remove(QRegularExpression(T_FONT_REGEX));
 	content.remove(T_FONT_CLOSE_TAG);
 	// Does not work at the moment, fucks up spaces and layout
 	/*	rx = QRegExp(T_FONT_REGEX);
@@ -511,54 +526,59 @@ void BookDownloadAndExport::load(QString bookID)
 
 	// --------------- Detect chapter header -----------
 	STATUS_MESSAGE("Detecting chapter header...");
-	rx = QRegExp(HEADER_REGEX);
-	pos = 0;
-	int posEnd = 0;
-	int posStart = 0;
-	QString subStr;
+    rx = QRegularExpression(HEADER_REGEX);
+    pos = 0;
+    int posEnd = 0;
+    int posStart = 0;
+    QString subStr;
 
-	content.remove(QRegExp(T_YOKO_START));
-	content.remove(QRegExp(T_YOKO_END));
+    content.remove(QRegularExpression(T_YOKO_START));
+    content.remove(QRegularExpression(T_YOKO_END));
 
-	QString link = "";
+    QString link = "";
 
-	while((pos = rx.indexIn(content, pos)) != -1)
-	{
-		link = rx.cap(1);
-		if(link.startsWith("#"))
-			link.remove(0, 1);
+    // Extract header links
+    while ((rx.match(content, pos)).hasMatch())
+    {
+        QRegularExpressionMatch match = rx.match(content, pos);
+        link = match.captured(1);
 
-		if(!m_knownHeaderLinks.contains(link))
-		{
-			if(content.contains(QString(HREF_TARGET_QSTRING).arg(link)))
-			{
-				m_knownHeaderLinks.append(link);
-				m_headerLinkValueHash.insert(link, rx.cap(2));
-			}
-		}
+        if (link.startsWith("#"))
+            link.remove(0, 1);
 
-		pos += rx.matchedLength();
-	}
+        if (!m_knownHeaderLinks.contains(link))
+        {
+            if (content.contains(QString(HREF_TARGET_QSTRING).arg(link)))
+            {
+                m_knownHeaderLinks.append(link);
+                m_headerLinkValueHash.insert(link, match.captured(2));
+            }
+        }
+
+        pos += match.capturedLength(0); // advance past this match
+    }
 
 #ifdef DEFAUT_MODE
-	foreach(link, m_knownHeaderLinks)
-	{
-		// Search for div close tag starting at the current link target anotation
-		posEnd = content.indexOf(HEADER_END, content.indexOf(QString(HREF_TARGET_QSTRING).arg(link)));
-		// Search for div start tag starting from the end tag
-		posStart = content.lastIndexOf(HEADER_START, posEnd);
-		// Create a substring containing the div block with the header
-		subStr = content.mid(posStart, (posEnd + QString(HEADER_END).length()) - posStart);
-		// Create a copy of the string, the old is kept in its original state to ensure replace works
-		QString modStr = subStr;
-		// Remove div tags
-		modStr.remove(HEADER_START);
-		modStr.remove(HEADER_END);
-		// Add line breaks and bold tag
-		modStr = QString("%1%1<div><b>%2</b></div>").arg(HTML_LINE_BREAK).arg(modStr);
-		if(modStr.contains("&#x") && content.count(subStr) == 1 && !subStr.contains("<img"))
-			content.replace(subStr, modStr);
-	}
+    for (const QString &link : m_knownHeaderLinks)
+    {
+        // Search for div close tag starting at the current link target annotation
+        posEnd = content.indexOf(HEADER_END, content.indexOf(QString(HREF_TARGET_QSTRING).arg(link)));
+        // Search for div start tag from the end tag
+        posStart = content.lastIndexOf(HEADER_START, posEnd);
+        // Substring containing the div block with the header
+        subStr = content.mid(posStart, (posEnd + QString(HEADER_END).length()) - posStart);
+        // Copy of substring for modifications
+        QString modStr = subStr;
+        // Remove div tags
+        modStr.remove(HEADER_START);
+        modStr.remove(HEADER_END);
+        // Add line breaks and bold tag
+        modStr = QString("%1%1<div><b>%2</b></div>").arg(HTML_LINE_BREAK).arg(modStr);
+
+        // Only replace if conditions are met
+        if (modStr.contains("&#x") && content.count(subStr) == 1 && !subStr.contains("<img"))
+            content.replace(subStr, modStr);
+    }
 #endif
 
 
@@ -616,7 +636,7 @@ QString BookDownloadAndExport::genDecodeKey()
 	QString e = m_bookID;
 	QString r = "";
 	for (int f = 0; f < l; f++)
-		r.append(d.at(qrand() % d.length()));
+        r.append(d.at(rand() % d.length()));
 
 	QString c = e + e;
 	QString s = c.mid(0, l);
@@ -719,7 +739,7 @@ void BookDownloadAndExport::loadBook()
 		QString data = Download::Get_sync(QString("%1/content.js").arg(m_cServer));
 		data.remove("DataGet_Content(");
 		data.chop(1);
-		bookJsonData.append(data);
+        bookJsonData.append(data.toUtf8());
 	}
 	else
 		bookJsonData = Download::Get_sync_raw(QString("%1/sbcGetCntnt.php?cid=%2&p=%3").arg(m_cServer).arg(m_bookID).arg(m_pID));
@@ -731,19 +751,24 @@ void BookDownloadAndExport::loadBook()
 
 	STATUS_MESSAGE("Converting unicode characters...");
 
-	QRegExp rx(UNICODE_CHARACTER_REGEX);
+    QRegularExpression rx(UNICODE_CHARACTER_REGEX);
 
-	updateProgress(0, QString(bookJsonData).count(rx), 0);
-	int pos = 0;
+    updateProgress(0, QString(bookJsonData).count(rx), 0);
 
-	while((pos = rx.indexIn(bookJsonData, pos)) != -1)
-	{
-		QByteArray arr;
-		arr.append(QString("&#x%1;").arg(rx.cap(1)));
-		ADD_2_PROGRESS(m_pUi->progressBar_download, QString(bookJsonData).count(rx.cap(1)));
-		bookJsonData.replace(rx.cap(0), arr);
-		pos += rx.matchedLength();
-	}
+    int pos = 0;
+    QRegularExpressionMatch match;
+
+    while ((match = rx.match(bookJsonData, pos)).hasMatch())
+    {
+        QByteArray matchedBytes = match.captured(0).toUtf8();
+        QByteArray arr = QString("&#x%1;").arg(match.captured(1)).toUtf8();
+
+        ADD_2_PROGRESS(m_pUi->progressBar_download,
+                       QString(bookJsonData).count(match.captured(1)));
+
+        bookJsonData.replace(matchedBytes, arr);
+        pos += matchedBytes.size();
+    }
 
 	QJsonParseError err;
 	QJsonDocument json = QJsonDocument::fromJson(bookJsonData);
@@ -826,7 +851,7 @@ void BookDownloadAndExport::loadB64Image(QString name)
 			if(json.object().contains("Data"))
 			{
 				QByteArray imgData;
-				imgData.append(json.object()["Data"].toString());
+                imgData.append(json.object()["Data"].toString().toUtf8());
 				m_pDecoder->DecodeB64Image(imgData, name);
 				return;
 			}

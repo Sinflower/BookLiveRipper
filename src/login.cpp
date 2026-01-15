@@ -145,26 +145,28 @@ bool Login::login(QString email, QString password)
 	qDebug("[%s]: Trying to login...", __func__);
 	QString page = Download::Get_sync("https://booklive.jp/login/index", QNetworkProxy::DefaultProxy, &m_cookies, COOKIE_GET);
 
-	QRegExp rx(TOKEN_REGEX);
+    QRegularExpression rx(TOKEN_REGEX);
+    QRegularExpressionMatch match = rx.match(page);
 
-	if(!page.contains(rx))
-	{
-		qDebug("[%s]: Index page does not contain token value - Internal changes?", __func__);
-		exit(-1);
-	}
+    if (!match.hasMatch())
+    {
+        qDebug("[%s]: Index page does not contain token value - Internal changes?", __func__);
+        exit(-1);
+    }
 
-	rx.indexIn(page);
+    if (match.captured(1).isEmpty())
+    {
+        qDebug("[%s]: Got a regex hit but no token.", __func__);
+        qDebug("[%s]: Regex hit: %s", __func__, qPrintable(match.captured(0)));
+        exit(-1);
+    }
 
-	if(rx.cap(1).isEmpty())
-	{
-		qDebug("[%s]: Got a regex hit but no token.", __func__);
-		qDebug("[%s]: Regex hit: %s", __func__, qPrintable(rx.cap(0)));
-		exit(-1);
-	}
+    QString postData = QString("token=%1&mail_addr=%2&pswd=%3")
+                           .arg(match.captured(1))
+                           .arg(email)
+                           .arg(password);
 
-	QString postData = QString("token=%1&mail_addr=%2&pswd=%3").arg(rx.cap(1)).arg(email).arg(password);
-
-    // .... They just check whether or not the cookie is set, not its content
+	// .... They just check whether or not the cookie is set, not it's content
 	// well ok, the content is just a random number hashed with MD5 but still,
 	// they don't even check whether or not it is a valid MD5 value
 	m_cookies.append(QNetworkCookie("BL_TRACK", "..."));
@@ -183,10 +185,10 @@ bool Login::login(QString email, QString password)
 
 //	qDebug() << m_cookies;
 
-	// Check for login cookie BL_LI
+	// Check for login cookie BL_LB
 	foreach(QNetworkCookie cookie, m_cookies)
 	{
-		if(cookie.name() == "BL_LI")
+		if(cookie.name() == "BL_LB")
 		{
 			qDebug("[%s]: Login successful", __func__);
 			return true;
