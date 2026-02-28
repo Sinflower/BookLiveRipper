@@ -143,7 +143,7 @@ bool Login::login(QString email, QString password)
 	m_guest = false;
 
 	qDebug("[%s]: Trying to login...", __func__);
-	QString page = Download::Get_sync("https://booklive.jp/login/index", QNetworkProxy::DefaultProxy, &m_cookies, COOKIE_GET);
+    QString page = Download::Get_sync("https://booklive.jp/login", QNetworkProxy::DefaultProxy, &m_cookies, COOKIE_GET);
 
     QRegularExpression rx(TOKEN_REGEX);
     QRegularExpressionMatch match = rx.match(page);
@@ -178,17 +178,19 @@ bool Login::login(QString email, QString password)
 		return true;
 	}
 
-	Download::SetStaticReferer("https://booklive.jp/login?from=firstcpn");
-	Download::IgnoreRedirect(true);
-	Download::Post_sync("https://booklive.jp/login/index", postData, QNetworkProxy::DefaultProxy, "application/x-www-form-urlencoded", &m_cookies, COOKIE_GET | COOKIE_SET);
-	Download::IgnoreRedirect(false);
+    Download::SetStaticReferer("https://booklive.jp/login");
+    Download::IgnoreRedirect(true);
+    qDebug("[%s]: Posting Login Request", __func__);
+    Download::Post_sync("https://booklive.jp/login", postData, QNetworkProxy::DefaultProxy, "application/x-www-form-urlencoded", &m_cookies, COOKIE_GET | COOKIE_SET);
+    qDebug("[%s]: Posting Login Request - Done", __func__);
+    Download::IgnoreRedirect(false);
 
 //	qDebug() << m_cookies;
 
 	// Check for login cookie BL_LB
 	foreach(QNetworkCookie cookie, m_cookies)
 	{
-		if(cookie.name() == "BL_LB")
+        if(cookie.name() == "BL_LB")
 		{
 			qDebug("[%s]: Login successful", __func__);
 			return true;

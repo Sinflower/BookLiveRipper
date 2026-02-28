@@ -33,7 +33,7 @@
 #include <QByteArray>
 #include <QMap>
 
-#define USER_AGENT "User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+#define USER_AGENT "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
 
 enum DOWNLOAD_MODE
 {
@@ -720,7 +720,7 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
 			QNetworkReply *pReply;
 
 			request.setRawHeader("User-Agent", USER_AGENT);
-			request.setRawHeader("Referer", m_staticReferer.toLatin1());
+            request.setRawHeader("Referer", m_staticReferer.toLatin1());
 
 			for(const QByteArray& h : m_staticRawHeader.keys())
 				request.setRawHeader(h, m_staticRawHeader.value(h));
@@ -761,7 +761,7 @@ class Download : public QObject, public StaticMemberContainer<QByteArray>
 				m_lastError = "Timeout";
 
 			if(pReply->error() == QNetworkReply::NoError)
-			{
+            {
 				QVariant possibleRedirectUrl = pReply->attribute(QNetworkRequest::RedirectionTargetAttribute);
 				QByteArray result;
 

@@ -674,7 +674,7 @@ void BookDownloadAndExport::loadConfig(QString bookID)
 	m_bookID = bookID;
 	m_decodeKey = genDecodeKey();
 	QByteArray config = Download::Get_sync_raw(QString("https://booklive.jp/bib-api/bibGetCntntInfo?cid=%1&k=%2").arg(m_bookID).arg(m_decodeKey),
-											   QNetworkProxy::DefaultProxy, &m_cookies, COOKIE_SET);
+                                               QNetworkProxy::DefaultProxy, &m_cookies, COOKIE_SET);
 
 	if(config.isEmpty())
 	{
@@ -742,11 +742,12 @@ void BookDownloadAndExport::loadBook()
         bookJsonData.append(data.toUtf8());
 	}
 	else
-		bookJsonData = Download::Get_sync_raw(QString("%1/sbcGetCntnt.php?cid=%2&p=%3").arg(m_cServer).arg(m_bookID).arg(m_pID));
+        bookJsonData = Download::Get_sync_raw(QString("%1/sbcGetCntnt.php?cid=%2&p=%3&vm=1").arg(m_cServer).arg(m_bookID).arg(m_pID));
 
 	if(bookJsonData.isEmpty())
 	{
 		qDebug("[%s]: An error occured while downloading the book", __func__);
+        return;
 	}
 
 	STATUS_MESSAGE("Converting unicode characters...");
@@ -812,7 +813,7 @@ void BookDownloadAndExport::loadImage(QString name)
 		imgData = Download::Get_sync_raw(QString("%1/%2/M_H.jpg").arg(m_cServer).arg(name));
 	}
 	else
-		imgData = Download::Get_sync_raw(QString("%1/sbcGetImg.php?cid=%2&src=%3&p=%4").arg(m_cServer).arg(m_bookID).arg(name).arg(m_pID));
+        imgData = Download::Get_sync_raw(QString("%1/sbcGetImg.php?cid=%2&src=%3&p=%4&vm=1").arg(m_cServer).arg(m_bookID).arg(name).arg(m_pID));
 
 	m_pDecoder->DecodeImage(name, imgData, name);
 }
