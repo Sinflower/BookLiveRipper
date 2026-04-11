@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <Download.h>
 #include <QFutureWatcher>
+#include <QJsonObject>
 
 namespace Ui
 {
@@ -78,6 +79,8 @@ class BookDownloadAndExport : public QDialog
 
 		QList<QNetworkCookie> m_cookies;
 		QFutureWatcher<void> *m_pWatcher;
+
+        QJsonObject m_bookInfo = {};
 
 		class QMenu *m_pExportMenu;
 		class QAction *m_pTxtSplit;

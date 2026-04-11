@@ -175,6 +175,16 @@ void BookDownloadAndExport::exportBook()
 	dir.mkpath(pathStr);
 	QDir::setCurrent(QString("%1/%2").arg(dir.path()).arg(pathStr));
 
+	// Write the book info as json to the export directory
+	QFile infoFile("info.json");
+	if(infoFile.open(QIODevice::WriteOnly | QIODevice::Text))
+	{
+		QJsonDocument doc(m_bookInfo);
+		infoFile.write(doc.toJson());
+		infoFile.close();
+	}
+	else
+		qDebug("[%s]: Unable to open output file: %s", __func__, qPrintable(infoFile.fileName()));
 
 	// Copy images
 	foreach(QString img, m_images)
@@ -778,9 +788,14 @@ void BookDownloadAndExport::loadBook()
 	{
 		if(json.isObject())
 		{
-			if(json.object().contains("ttx"))
+			QJsonObject bookObj = json.object();
+			if(bookObj.contains("ttx"))
 			{
-				m_book = json.object()["ttx"].toString();
+				m_book = bookObj["ttx"].toString();
+
+				bookObj.remove("ttx");
+				m_bookInfo = bookObj;
+
 				STATUS_MESSAGE("Book download successful");
 				return;
 			}
