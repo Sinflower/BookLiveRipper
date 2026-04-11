@@ -69,13 +69,13 @@ bool Decoder::DecodeImage(QString inName, QByteArray imgData, QString outName)
 	// --------------- Descramble keys ---------------
 
 	// --------------- Get decode data ---------------
-    QRegularExpression rx("^=([0-9]+)-([0-9]+)([-+])([0-9]+)-([-_0-9A-Za-z]+)$");
+	QRegularExpression rx("^=([0-9]+)-([0-9]+)([-+])([0-9]+)-([-_0-9A-Za-z]+)$");
 
-    QRegularExpressionMatch match1 = rx.match(m_ctbl.at(c).toString());
-    QStringList a = match1.capturedTexts();
+	QRegularExpressionMatch match1 = rx.match(m_ctbl.at(c).toString());
+	QStringList a = match1.capturedTexts();
 
-    QRegularExpressionMatch match2 = rx.match(m_ptbl.at(p).toString());
-    QStringList b = match2.capturedTexts();
+	QRegularExpressionMatch match2 = rx.match(m_ptbl.at(p).toString());
+	QStringList b = match2.capturedTexts();
 
 	if (a.at(1) != b.at(1) || a.at(2) != b.at(2) || a.at(4) != b.at(4) || a.at(3) != "+" || b.at(3) != "-")
 	{
